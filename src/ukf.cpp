@@ -65,7 +65,12 @@ UKF::UKF() {
   // Initialize weights
   weights_ = VectorXd(2 * n_aug_ + 1);
   weights_.fill(0.0);
-
+  double weight_0 = lambda_ / (lambda_ + n_aug_);
+  weights_(0) = weight_0;
+  for (int i = 1; i<2 * n_aug_ + 1; i++) {  //2n+1 weights
+	  double weight = 0.5 / (n_aug_ + lambda_);
+	  weights_(i) = weight;
+  }
 
   // initializing laser Matrixs R, H
   R_laser_ = MatrixXd(2, 2);
@@ -113,13 +118,6 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
 /*  Initialization       */
 /*************************/
 	if (!is_initialized_) {
-		// Set initial Weights
-		double weight_0 = lambda_ / (lambda_ + n_aug_);
-		weights_(0) = weight_0;
-		for (int i = 1; i<2 * n_aug_ + 1; i++) {  //2n+1 weights
-			double weight = 0.5 / (n_aug_ + lambda_);
-			weights_(i) = weight;
-		}
 
 		if (meas_package.sensor_type_ == MeasurementPackage::LASER) {
 			float px = meas_package.raw_measurements_[0];
@@ -153,6 +151,7 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
 		time_us_ = meas_package.timestamp_;
 
 		cout << "Initialization Done:" << P_ << endl;
+		cout << " x_ = " << x_ << endl;
 		return;
 	}
 
@@ -227,6 +226,8 @@ void UKF::Prediction(double delta_t) {
 		Xsig_aug.col(i + 1 + n_aug_) = x_aug - sqrt(lambda_ + n_aug_) * L.col(i);
 	}
 
+	//print result
+	std::cout << "Xsig_aug = " << std::endl << Xsig_aug << std::endl;
 
 /* Sigma Points prediction   */
 	MatrixXd Xsig_pred = MatrixXd(n_x_, 2 * n_aug_ + 1);
@@ -273,6 +274,10 @@ void UKF::Prediction(double delta_t) {
 		Xsig_pred(3, i) = yaw_p;
 		Xsig_pred(4, i) = yawd_p;
 	}
+
+	//print Xsig_pred
+	std::cout << "Xsig_pred = " << std::endl << Xsig_pred << std::endl;
+
 
 /*  Predict Mean and Convariance  */
 	//create vector for predicted state
