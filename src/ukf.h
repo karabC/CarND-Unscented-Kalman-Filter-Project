@@ -30,6 +30,7 @@ public:
 
   ///* predicted sigma points matrix
   MatrixXd Xsig_pred_;
+  MatrixXd Zsig_pred_;
 
   ///* time when the state is true, in us
   long long time_us_;
@@ -60,12 +61,16 @@ public:
 
   ///* State dimension
   int n_x_;
-
+  int n_z_;
   ///* Augmented state dimension
   int n_aug_;
 
   ///* Sigma point spreading parameter
   double lambda_;
+
+  // initializing laser Matrixs R, H
+  MatrixXd R_laser_;
+  MatrixXd H_laser_;
 
 
   /**
@@ -102,6 +107,10 @@ public:
    * @param meas_package The measurement at k+1
    */
   void UpdateRadar(MeasurementPackage meas_package);
+
+
+  void PredictRadarMeasurement(VectorXd* z_out, MatrixXd* S_out);
+
 };
 
 #endif /* UKF_H */
