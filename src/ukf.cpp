@@ -211,60 +211,76 @@ void UKF::Prediction(double delta_t) {
 
 
 /* Sigma Points prediction   */
-	for (int i = 0; i < (2 * n_aug_ + 1); i++) {
-		VectorXd input_x = Xsig_aug.col(i);
-		float px = input_x[0];
-		float py = input_x[1];
-		float v = input_x[2];
-		float psi = input_x[3];
-		float psi_dot = input_x[4];
-		float mu_a = input_x[5];
-		float mu_psi_dot_dot = input_x[6];
+	MatrixXd Xsig_pred = MatrixXd(n_x_, 2 * n_aug_ + 1);
+	for (int i = 0; i< 2 * n_aug_ + 1; i++)
+	{
+		//extract values for better readability
+		double p_x = Xsig_aug(0, i);
+		double p_y = Xsig_aug(1, i);
+		double v = Xsig_aug(2, i);
+		double yaw = Xsig_aug(3, i);
+		double yawd = Xsig_aug(4, i);
+		double nu_a = Xsig_aug(5, i);
+		double nu_yawdd = Xsig_aug(6, i);
 
-		VectorXd term2 = VectorXd(5);
-		VectorXd term3 = VectorXd(5);
-		VectorXd result = VectorXd(5);
-		if (psi_dot < 0.001) {
-			term2 << v * cos(psi) * delta_t, v * sin(psi) * delta_t, 0, psi_dot * delta_t, 0;
-			term3 << 0.5 * delta_t*delta_t * cos(psi) * mu_a,
-				0.5 * delta_t*delta_t * sin(psi) * mu_a,
-				delta_t * mu_a,
-				0.5 * delta_t*delta_t * mu_psi_dot_dot,
-				delta_t * mu_psi_dot_dot;
-			result = Xsig_aug.col(i).head(5) + term2 + term3;
+		//predicted state values
+		double px_p, py_p;
+
+		//avoid division by zero
+		if (fabs(yawd) > 0.001) {
+			px_p = p_x + v / yawd * (sin(yaw + yawd * delta_t) - sin(yaw));
+			py_p = p_y + v / yawd * (cos(yaw) - cos(yaw + yawd * delta_t));
 		}
 		else {
-			term2 << (v / psi_dot) * (sin(psi + psi_dot * delta_t) - sin(psi)),
-				(v / psi_dot) * (-cos(psi + psi_dot * delta_t) + cos(psi)),
-				0,
-				psi_dot * delta_t,
-				0;
-
-			term3 << 0.5 * delta_t*delta_t * cos(psi) * mu_a,
-				0.5 * delta_t*delta_t * sin(psi) * mu_a,
-				delta_t * mu_a,
-				0.5 * delta_t*delta_t * mu_psi_dot_dot,
-				delta_t * mu_psi_dot_dot;
-			result = Xsig_aug.col(i).head(5) + term2 + term3;
+			px_p = p_x + v * delta_t*cos(yaw);
+			py_p = p_y + v * delta_t*sin(yaw);
 		}
 
-		Xsig_pred_.col(i) = result;
+		double v_p = v;
+		double yaw_p = yaw + yawd * delta_t;
+		double yawd_p = yawd;
+
+		//add noise
+		px_p = px_p + 0.5*nu_a*delta_t*delta_t * cos(yaw);
+		py_p = py_p + 0.5*nu_a*delta_t*delta_t * sin(yaw);
+		v_p = v_p + nu_a * delta_t;
+
+		yaw_p = yaw_p + 0.5*nu_yawdd*delta_t*delta_t;
+		yawd_p = yawd_p + nu_yawdd * delta_t;
+
+		//write predicted sigma point into right column
+		Xsig_pred(0, i) = px_p;
+		Xsig_pred(1, i) = py_p;
+		Xsig_pred(2, i) = v_p;
+		Xsig_pred(3, i) = yaw_p;
+		Xsig_pred(4, i) = yawd_p;
 	}
 
-	// Predict Mean and Convariance
-	x_.fill(0.0);
-	for (int i = 0; i<2 * n_aug_ + 1; i++) {
-		x_ = x_ + weights_[i] * Xsig_pred_.col(i);
+/*  Predict Mean and Convariance  */
+	//create vector for predicted state
+	VectorXd x = VectorXd(n_x_);
+	//create covariance matrix for prediction
+	MatrixXd P = MatrixXd(n_x_, n_x_);
+	//predicted state mean
+	x.fill(0.0);
+	for (int i = 0; i < 2 * n_aug_ + 1; i++) {  //iterate over sigma points
+		x = x + weights_(i) * Xsig_pred_.col(i);
 	}
-	P_.fill(0.0);
-	for (int i = 0; i<2 * n_aug_ + 1; i++) {
-		VectorXd x_diff = Xsig_pred_.col(i) - x_;
-		while (x_diff[3]> M_PI)
-			x_diff[3] -= 2.*M_PI;
-		while (x_diff[3] <-M_PI)
-			x_diff[3] += 2.*M_PI;
-		P_ = P_ + weights_[i] * x_diff * x_diff.transpose();
+
+	//predicted state covariance matrix
+	P.fill(0.0);
+	for (int i = 0; i < 2 * n_aug_ + 1; i++) {  //iterate over sigma points
+
+												// state difference
+		VectorXd x_diff = Xsig_pred_.col(i) - x;
+		//angle normalization
+		while (x_diff(3)> M_PI) x_diff(3) -= 2.*M_PI;
+		while (x_diff(3)<-M_PI) x_diff(3) += 2.*M_PI;
+
+		P = P + weights_(i) * x_diff * x_diff.transpose();
 	}
+	x_ = x;
+	P_ = P;
 }
 
 /**
