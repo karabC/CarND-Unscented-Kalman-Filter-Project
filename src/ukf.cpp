@@ -152,6 +152,9 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
 		Prediction(dt);
 	}
 
+	cout << "x_ = " << x_ << endl;
+	cout << "P_ = " << P_ << endl;
+
 	if (meas_package.sensor_type_ == MeasurementPackage::RADAR) {
 		UpdateRadar(meas_package);
 	}
@@ -160,8 +163,6 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
 	}
 
 	// print the output
-	cout << "x_ = " << x_ << endl;
-	cout << "P_ = " << P_ << endl;
 
 }
 
@@ -331,7 +332,6 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   You'll also need to calculate the radar NIS.
   */
 
-
 	float rho = meas_package.raw_measurements_[0];
 	float phi = meas_package.raw_measurements_[1];
 	float rho_dot = meas_package.raw_measurements_[2];
@@ -374,28 +374,25 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
 
 	}
 
+	//Kalman gain K;
+	MatrixXd K = Tc * S.inverse();
 
-	MatrixXd K = MatrixXd(5, 3);
-	K = Tc * S.inverse();
-
-	VectorXd y = z - z_pred;
-	//angle normalization
-	if (n_z_ == 3) {
-		while (y(1)> M_PI) y(1) -= 2.*M_PI;
-		while (y(1)<-M_PI) y(1) += 2.*M_PI;
-	}
-	x_ = x_ + K * y;
-	P_ = P_ - K * S * K.transpose();
-
-
+	//residual
 	VectorXd z_diff = z - z_pred;
+
 	//angle normalization
-	while (z_diff(1)> M_PI) z_diff(1) -= 2.*M_PI;
-	while (z_diff(1)<-M_PI) z_diff(1) += 2.*M_PI;
+	if (fabs(z_diff(1)) > M_PI) {
+		z_diff(1) -= round(z_diff(1) / (2. * M_PI)) * (2. * M_PI);
+	}
+
+	//update state mean and covariance matrix
+	x_ = x_ + K * z_diff;
+	P_ = P_ - K * S*K.transpose();
 
 	//print result
-	std::cout << "z_diff: " << std::endl << z_diff << std::endl;
-	std::cout << "S: " << std::endl << S << std::endl;
+	std::cout << "Updated state x: " << std::endl << x_ << std::endl;
+	std::cout << "Updated state covariance P: " << std::endl << P_ << std::endl;
+
 }
 
 
