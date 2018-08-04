@@ -329,25 +329,24 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
 
 	}
 
-	//Kalman gain K;
-	MatrixXd K = Tc * S.inverse();
 
-	//residual
-	VectorXd z_diff = z - z_pred;
+	MatrixXd K = MatrixXd(5, 3);
+	K = Tc * S.inverse();
 
+	VectorXd y = z - z_pred;
 	//angle normalization
-	if (fabs(z_diff(1)) > M_PI) {
-		z_diff(1) -= round(z_diff(1) / (2. * M_PI)) * (2. * M_PI);
+	if (n_z_ == 3) {
+		while (y(1)> M_PI) y(1) -= 2.*M_PI;
+		while (y(1)<-M_PI) y(1) += 2.*M_PI;
 	}
+	x_ = x_ + K * y;
+	P_ = P_ - K * S * K.transpose();
 
-	//update state mean and covariance matrix
-	x_ = x_ + K * z_diff;
-	P_ = P_ - K * S*K.transpose();
 
-	//print result
-	std::cout << "Updated state x: " << std::endl << x_ << std::endl;
-	std::cout << "Updated state covariance P: " << std::endl << P_ << std::endl;
-
+	VectorXd z_diff = z - z_pred;
+	//angle normalization
+	while (z_diff(1)> M_PI) z_diff(1) -= 2.*M_PI;
+	while (z_diff(1)<-M_PI) z_diff(1) += 2.*M_PI;
 
 }
 
