@@ -112,24 +112,45 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
 	if (!is_initialized_) {
 		x_.fill(0.0);
 		if (meas_package.sensor_type_ == MeasurementPackage::LASER) {
-			x_[0] = meas_package.raw_measurements_[0];
-			x_[1] = meas_package.raw_measurements_[1];
+			float px = meas_package.raw_measurements_[0];
+			float py = meas_package.raw_measurements_[1];
+			x_ << px, py, 0, 0, 0;
 		}
 		else if (meas_package.sensor_type_ == MeasurementPackage::RADAR) 
 		{
 			float rho = meas_package.raw_measurements_[0];
 			float phi = meas_package.raw_measurements_[1];
 			float rho_dot = meas_package.raw_measurements_[2];
-			x_[0] = rho * cos(phi);
-			x_[1] = rho * sin(phi);
+
+			if (fabs(phi) > M_PI) {
+				phi -= round(phi / (2. * M_PI)) * (2. * M_PI);
+			}
+
+			float px = rho * cos(phi);
+			float py = rho * sin(phi);
+			float vx = rho_dot * cos(phi);
+			float vy = rho_dot * sin(phi);
+			x_ << px, py, sqrt(vx*vx + vy * vy), phi, 0;
 		}
+
+		// Check for Divide by Zero condition and reset x_ values.
+		if (fabs(x_(0)) < 0.0001 && fabs(x_(1)) < 0.0001) {
+			x_(0) = 0.0001;
+			x_(1) = 0.0001;
+		}
+
 		is_initialized_ = true;
 		time_us_ = meas_package.timestamp_;
 		return;
 	}
+
+
 	double dt = (meas_package.timestamp_ - time_us_) / 1000000.0;
 	time_us_ = meas_package.timestamp_;
-	Prediction(dt);
+
+	if (dt >= 0.001){
+		Prediction(dt);
+	}
 
 	if (meas_package.sensor_type_ == MeasurementPackage::RADAR) {
 		UpdateRadar(meas_package);
@@ -137,6 +158,11 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
 	else if (meas_package.sensor_type_ == MeasurementPackage::LASER) {
 		UpdateLidar(meas_package);
 	}
+
+	// print the output
+	cout << "x_ = " << x_ << endl;
+	cout << "P_ = " << P_ << endl;
+
 }
 
 /**
@@ -152,7 +178,7 @@ void UKF::Prediction(double delta_t) {
   vector, x_. Predict sigma points, the state, and the state covariance matrix.
   */
 
-	/* Sigma Points Logic */
+/* Sigma Points Logic */
 	//create augmented mean vector
 	VectorXd x_aug = VectorXd(7);
 	//create augmented state covariance
@@ -161,27 +187,30 @@ void UKF::Prediction(double delta_t) {
 	MatrixXd Xsig_aug = MatrixXd(n_aug_, 2 * n_aug_ + 1);
 	Xsig_aug.fill(0.0);
 
+	//create augmented mean state
 	x_aug.head(5) = x_;
 	x_aug(5) = 0;
 	x_aug(6) = 0;
 
+	//create augmented covariance matrix
 	P_aug.fill(0.0);
 	P_aug.topLeftCorner(5, 5) = P_;
 	P_aug(5, 5) = std_a_ * std_a_;
 	P_aug(6, 6) = std_yawdd_ * std_yawdd_;
 
-	MatrixXd A = P_aug.llt().matrixL();
+	//create square root matrix
+	MatrixXd L = P_aug.llt().matrixL();
 
-	/*  create augmented sigma points  */
+	//create augmented sigma points
 	Xsig_aug.col(0) = x_aug;
 	for (int i = 0; i< n_aug_; i++)
 	{
-		Xsig_aug.col(i + 1) = x_aug + sqrt(lambda_ + n_aug_) * A.col(i);
-		Xsig_aug.col(i + 1 + n_aug_) = x_aug - sqrt(lambda_ + n_aug_) * A.col(i);
+		Xsig_aug.col(i + 1) = x_aug + sqrt(lambda_ + n_aug_) * L.col(i);
+		Xsig_aug.col(i + 1 + n_aug_) = x_aug - sqrt(lambda_ + n_aug_) * L.col(i);
 	}
 
 
-	/* Sigma Points prediction   */
+/* Sigma Points prediction   */
 	for (int i = 0; i < (2 * n_aug_ + 1); i++) {
 		VectorXd input_x = Xsig_aug.col(i);
 		float px = input_x[0];
@@ -348,6 +377,9 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
 	while (z_diff(1)> M_PI) z_diff(1) -= 2.*M_PI;
 	while (z_diff(1)<-M_PI) z_diff(1) += 2.*M_PI;
 
+	//print result
+	std::cout << "z_diff: " << std::endl << z_diff << std::endl;
+	std::cout << "S: " << std::endl << S << std::endl;
 }
 
 
