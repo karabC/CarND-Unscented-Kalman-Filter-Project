@@ -110,7 +110,14 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
   measurements.
   */
 	if (!is_initialized_) {
-		x_.fill(0.0);
+		// Set initial Weights
+		double weight_0 = lambda_ / (lambda_ + n_aug_);
+		weights_(0) = weight_0;
+		for (int i = 1; i<2 * n_aug_ + 1; i++) {  //2n+1 weights
+			double weight = 0.5 / (n_aug_ + lambda_);
+			weights_(i) = weight;
+		}
+
 		if (meas_package.sensor_type_ == MeasurementPackage::LASER) {
 			float px = meas_package.raw_measurements_[0];
 			float py = meas_package.raw_measurements_[1];
@@ -141,14 +148,18 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
 
 		is_initialized_ = true;
 		time_us_ = meas_package.timestamp_;
+
+		cout << "Initialization Done:" << P_ << endl;
 		return;
 	}
 
 
 	double dt = (meas_package.timestamp_ - time_us_) / 1000000.0;
 	time_us_ = meas_package.timestamp_;
-	
 	Prediction(dt);
+
+	cout << "Prediction Done:" << dt << endl;
+
 
 	if (meas_package.sensor_type_ == MeasurementPackage::RADAR) {
 		UpdateRadar(meas_package);
