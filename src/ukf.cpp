@@ -147,10 +147,8 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
 
 	double dt = (meas_package.timestamp_ - time_us_) / 1000000.0;
 	time_us_ = meas_package.timestamp_;
-
-	if (dt >= 0.001){
-		Prediction(dt);
-	}
+	
+	Prediction(dt);
 
 	if (meas_package.sensor_type_ == MeasurementPackage::RADAR) {
 		UpdateRadar(meas_package);
