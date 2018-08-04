@@ -275,6 +275,8 @@ void UKF::Prediction(double delta_t) {
 		Xsig_pred(4, i) = yawd_p;
 	}
 
+	Xsig_pred_ = Xsig_pred;
+
 	//print Xsig_pred
 	std::cout << "Xsig_pred = " << std::endl << Xsig_pred << std::endl;
 
