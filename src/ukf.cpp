@@ -109,6 +109,9 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
   Complete this function! Make sure you switch between lidar and radar
   measurements.
   */
+/*************************/
+/*  Initialization       */
+/*************************/
 	if (!is_initialized_) {
 		// Set initial Weights
 		double weight_0 = lambda_ / (lambda_ + n_aug_);
@@ -153,6 +156,9 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
 		return;
 	}
 
+	/*************************/
+	/*  Prediction       */
+	/*************************/
 
 	double dt = (meas_package.timestamp_ - time_us_) / 1000000.0;
 	time_us_ = meas_package.timestamp_;
@@ -160,6 +166,9 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
 
 	cout << "Prediction Done:" << dt << endl;
 
+	// print the output
+	cout << "Predict x_ = " << x_ << endl;
+	cout << "Predict P_ = " << P_ << endl;
 
 	if (meas_package.sensor_type_ == MeasurementPackage::RADAR) {
 		UpdateRadar(meas_package);
